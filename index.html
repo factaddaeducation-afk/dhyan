@@ -1,160 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Dhyan Surf – Safe browser for students</title>
-  <meta name="description" content="Dhyan Surf is a safe, distraction-free browser for students and school computer labs.">
-  <meta name="theme-color" content="#0b1120">
-  <meta name="color-scheme" content="dark">
-  <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'self'; object-src 'none'">
-
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icons/icon-192.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Dhyan Surf">
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dhyan Surf</title>
+<meta name="theme-color" content="#0b1120">
+<meta name="description" content="Dhyan Surf: a safe study browser for students.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjExMiIgZmlsbD0iIzBiMTEyMCIvPjxwYXRoIGQ9Ik0yNTYgNjQgNDAwIDEyMHYxMThjMCA5Ni02MiAxNjgtMTQ0IDIxMEMxNzQgNDA2IDExMiAzMzQgMTEyIDIzOFYxMjB6IiBmaWxsPSIjMGYxYjMzIiBzdHJva2U9IiMzOGJkZjgiIHN0cm9rZS13aWR0aD0iMTYiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMTQ4IDI2MmMzNi01MiA2OC01MiAxMDggMHM3MiA1MiAxMDggMHYzNGMtMzYgNTItNzIgNTItMTA4IDBzLTcyLTUyLTEwOCAweiIgZmlsbD0iIzM4YmRmOCIvPjxwYXRoIGQ9Ik0xNDggMzIyYzM2LTQwIDY4LTQwIDEwOCAwczcyIDQwIDEwOCAwdjMwYy0zNiA0MC03MiA0MC0xMDggMHMtNzItNDAtMTA4IDB6IiBmaWxsPSIjMTBiOTgxIi8+PHBhdGggZD0iTTI1NiAxMDB2NDZNMjMyIDEyM2g0OCIgc3Ryb2tlPSIjMzhiZGY4IiBzdHJva2Utd2lkdGg9IjEwIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4=">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjExMiIgZmlsbD0iIzBiMTEyMCIvPjxwYXRoIGQ9Ik0yNTYgNjQgNDAwIDEyMHYxMThjMCA5Ni02MiAxNjgtMTQ0IDIxMEMxNzQgNDA2IDExMiAzMzQgMTEyIDIzOFYxMjB6IiBmaWxsPSIjMGYxYjMzIiBzdHJva2U9IiMzOGJkZjgiIHN0cm9rZS13aWR0aD0iMTYiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMTQ4IDI2MmMzNi01MiA2OC01MiAxMDggMHM3MiA1MiAxMDggMHYzNGMtMzYgNTItNzIgNTItMTA4IDBzLTcyLTUyLTEwOCAweiIgZmlsbD0iIzM4YmRmOCIvPjxwYXRoIGQ9Ik0xNDggMzIyYzM2LTQwIDY4LTQwIDEwOCAwczcyIDQwIDEwOCAwdjMwYy0zNiA0MC03MiA0MC0xMDggMHMtNzItNDAtMTA4IDB6IiBmaWxsPSIjMTBiOTgxIi8+PHBhdGggZD0iTTI1NiAxMDB2NDZNMjMyIDEyM2g0OCIgc3Ryb2tlPSIjMzhiZGY4IiBzdHJva2Utd2lkdGg9IjEwIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4=">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <a class="skip-link" href="#main">Skip to content</a>
+<!-- LOGIN -->
+<main id="loginView" class="login" hidden>
+  <form id="loginForm" class="card login-card" autocomplete="off">
+    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjExMiIgZmlsbD0iIzBiMTEyMCIvPjxwYXRoIGQ9Ik0yNTYgNjQgNDAwIDEyMHYxMThjMCA5Ni02MiAxNjgtMTQ0IDIxMEMxNzQgNDA2IDExMiAzMzQgMTEyIDIzOFYxMjB6IiBmaWxsPSIjMGYxYjMzIiBzdHJva2U9IiMzOGJkZjgiIHN0cm9rZS13aWR0aD0iMTYiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMTQ4IDI2MmMzNi01MiA2OC01MiAxMDggMHM3MiA1MiAxMDggMHYzNGMtMzYgNTItNzIgNTItMTA4IDBzLTcyLTUyLTEwOCAweiIgZmlsbD0iIzM4YmRmOCIvPjxwYXRoIGQ9Ik0xNDggMzIyYzM2LTQwIDY4LTQwIDEwOCAwczcyIDQwIDEwOCAwdjMwYy0zNiA0MC03MiA0MC0xMDggMHMtNzItNDAtMTA4IDB6IiBmaWxsPSIjMTBiOTgxIi8+PHBhdGggZD0iTTI1NiAxMDB2NDZNMjMyIDEyM2g0OCIgc3Ryb2tlPSIjMzhiZGY4IiBzdHJva2Utd2lkdGg9IjEwIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4=" alt="Dhyan Surf logo" width="72" height="72">
+    <h1>Dhyan Surf</h1>
+    <p class="muted">Safe browsing for study. New name? An account is created on this device.</p>
+    <label for="uName">Student Name or School Name</label>
+    <input id="uName" required maxlength="40" autocomplete="username">
+    <label for="uPass">Password</label>
+    <input id="uPass" type="password" required minlength="4" autocomplete="current-password">
+    <p id="loginErr" class="err" role="alert"></p>
+    <button class="btn primary" type="submit">Log in</button>
+    <div id="profiles" class="profiles" aria-label="Profiles on this device"></div>
+  </form>
+</main>
 
-  <noscript>
-    <p class="noscript">Dhyan Surf needs JavaScript to run. Please turn it on and reload.</p>
-  </noscript>
-
-  <!-- ============ LOGIN ============ -->
-  <section id="loginView" class="login" hidden>
-    <div class="login-card">
-      <div class="brand brand-large">
-        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
-          <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" stroke-width="4"/>
-          <path d="M14 30c6-8 12-8 18 0s12 8 18 0" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-          <path d="M14 42c6-8 12-8 18 0s12 8 18 0" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity=".55"/>
-        </svg>
-        <h1>Dhyan Surf</h1>
-      </div>
-      <p class="login-sub">Safe search for school. Log in or create your own profile on this computer.</p>
-
-      <form id="loginForm" autocomplete="on" novalidate>
-        <label for="loginName">Student name or school name</label>
-        <input id="loginName" name="username" type="text" maxlength="40" autocomplete="username" required>
-
-        <label for="loginPass">Password</label>
-        <input id="loginPass" name="password" type="password" minlength="4" maxlength="128" autocomplete="current-password" required>
-
-        <p id="loginMsg" class="msg" role="alert" aria-live="assertive"></p>
-
-        <div class="btn-row">
-          <button type="submit" class="btn btn-primary" id="loginBtn">Log in</button>
-          <button type="button" class="btn btn-ghost" id="createBtn">Create profile</button>
-        </div>
-      </form>
-
-      <div id="profilePicker" class="picker" hidden>
-        <p class="picker-title">Profiles on this computer</p>
-        <div id="profileChips" class="chips"></div>
-      </div>
-
-      <p class="fineprint">Your profile and history stay on this device only. Passwords can’t be recovered, so choose one you will remember.</p>
-    </div>
-  </section>
-
-  <!-- ============ APP ============ -->
-  <div id="appView" class="app" hidden>
-    <header class="topbar">
-      <div class="brand">
-        <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
-          <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" stroke-width="4"/>
-          <path d="M14 30c6-8 12-8 18 0s12 8 18 0" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-          <path d="M14 42c6-8 12-8 18 0s12 8 18 0" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity=".55"/>
-        </svg>
-        <span class="brand-name">Dhyan Surf</span>
-      </div>
-      <div class="topbar-actions">
-        <button type="button" class="btn btn-small btn-ghost" id="installBtn" hidden>Install app</button>
-        <span class="user-chip" id="userChip" title="Logged in"></span>
-        <button type="button" class="btn btn-small btn-ghost" id="logoutBtn">Log out</button>
-      </div>
-    </header>
-
-    <p id="offlineBar" class="offline-bar" role="status" hidden>You are offline. Searching needs the internet.</p>
-
-    <main id="main" class="main">
-      <section class="hero" aria-labelledby="heroTitle">
-        <h2 id="heroTitle">What do you want to learn today?</h2>
-
-        <form id="searchForm" class="search" role="search" novalidate>
-          <label for="searchInput" class="visually-hidden">Search</label>
-          <input id="searchInput" type="search" maxlength="200" placeholder="Search for a topic, chapter or question" autocomplete="off" autocapitalize="off" spellcheck="true" enterkeyhint="search">
-          <button type="submit" class="btn btn-primary search-btn">Search</button>
-        </form>
-
-        <fieldset class="seg" aria-label="Search type">
-          <label><input type="radio" name="searchType" value="web" checked><span>Web</span></label>
-          <label><input type="radio" name="searchType" value="images"><span>Images</span></label>
-          <label><input type="radio" name="searchType" value="videos"><span>Videos</span></label>
-        </fieldset>
-
-        <div id="blockAlert" class="alert" role="alert" aria-live="assertive" hidden>
-          <strong id="blockTitle"></strong>
-          <p id="blockText"></p>
-        </div>
-
-        <p class="safe-note">SafeSearch is always on. Results open in a new tab.</p>
-      </section>
-
-      <section class="section" aria-labelledby="learnTitle">
-        <h2 id="learnTitle">Learn with Fact Adda</h2>
-        <div id="shortcutGrid" class="grid"></div>
-      </section>
-
-      <section class="section" aria-labelledby="historyTitle">
-        <div class="section-head">
-          <h2 id="historyTitle">My search history</h2>
-          <div class="history-actions">
-            <button type="button" class="btn btn-small btn-danger" id="clearHistoryBtn" hidden>Delete all</button>
-            <button type="button" class="btn btn-small btn-ghost" id="lockHistoryBtn" hidden>Lock</button>
-          </div>
-        </div>
-
-        <div id="historyLocked" class="card locked">
-          <p>Your history is hidden. Enter your password to see or delete it.</p>
-          <button type="button" class="btn btn-primary" id="unlockBtn">Unlock history</button>
-        </div>
-
-        <div id="historyOpen" class="card" hidden>
-          <p id="historyEmpty" class="empty" hidden>No searches yet. Your searches will show up here.</p>
-          <ul id="historyList" class="history-list"></ul>
-        </div>
-      </section>
-    </main>
-
-    <footer class="footer">
-      <p>Dhyan Surf blocks adult, gambling and harmful searches before they leave this app.</p>
-    </footer>
-  </div>
-
-  <!-- ============ PASSWORD DIALOG ============ -->
-  <dialog id="unlockDialog" aria-labelledby="unlockTitle">
-    <form id="unlockForm" novalidate>
-      <h2 id="unlockTitle">Enter your password</h2>
-      <p class="dialog-sub">This keeps your history private on shared computers.</p>
-      <label for="unlockPass" class="visually-hidden">Password</label>
-      <input id="unlockPass" type="password" maxlength="128" autocomplete="current-password" required>
-      <p id="unlockMsg" class="msg" role="alert" aria-live="assertive"></p>
-      <div class="btn-row">
-        <button type="submit" class="btn btn-primary">Unlock</button>
-        <button type="button" class="btn btn-ghost" id="unlockCancel">Cancel</button>
-      </div>
+<!-- APP -->
+<div id="appView" hidden>
+  <header class="top">
+    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjExMiIgZmlsbD0iIzBiMTEyMCIvPjxwYXRoIGQ9Ik0yNTYgNjQgNDAwIDEyMHYxMThjMCA5Ni02MiAxNjgtMTQ0IDIxMEMxNzQgNDA2IDExMiAzMzQgMTEyIDIzOFYxMjB6IiBmaWxsPSIjMGYxYjMzIiBzdHJva2U9IiMzOGJkZjgiIHN0cm9rZS13aWR0aD0iMTYiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMTQ4IDI2MmMzNi01MiA2OC01MiAxMDggMHM3MiA1MiAxMDggMHYzNGMtMzYgNTItNzIgNTItMTA4IDBzLTcyLTUyLTEwOCAweiIgZmlsbD0iIzM4YmRmOCIvPjxwYXRoIGQ9Ik0xNDggMzIyYzM2LTQwIDY4LTQwIDEwOCAwczcyIDQwIDEwOCAwdjMwYy0zNiA0MC03MiA0MC0xMDggMHMtNzItNDAtMTA4IDB6IiBmaWxsPSIjMTBiOTgxIi8+PHBhdGggZD0iTTI1NiAxMDB2NDZNMjMyIDEyM2g0OCIgc3Ryb2tlPSIjMzhiZGY4IiBzdHJva2Utd2lkdGg9IjEwIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4=" alt="" width="32" height="32">
+    <strong class="brand">Dhyan Surf</strong>
+    <form id="searchForm" class="omni" role="search">
+      <input id="q" type="text" placeholder="Search or type a website address" aria-label="Search or enter address" autocomplete="off" maxlength="200">
+      <button class="btn primary" type="submit">Search</button>
     </form>
-  </dialog>
+    <div class="pomo" aria-label="Pomodoro study timer">
+      <span id="pomoMode">Focus</span>
+      <time id="pomoTime">25:00</time>
+      <button id="pomoGo" class="btn sm" title="Start or pause">▶</button>
+      <button id="pomoReset" class="btn sm" title="Reset">↺</button>
+      <button id="pomoSwap" class="btn sm" title="Switch focus/break">⇄</button>
+    </div>
+    <div class="user">
+      <span id="whoami"></span>
+      <button id="switchBtn" class="btn sm">Switch</button>
+      <button id="logoutBtn" class="btn sm">Log out</button>
+    </div>
+  </header>
+  <nav class="bookmarks" id="bookmarks" aria-label="Quick bookmarks"></nav>
 
-  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <main class="wrap">
+    <div id="banner" class="banner" role="alert" hidden>🚫 Dhyan Shield: Restricted Content</div>
 
-  <script src="app.js" defer></script>
+    <section id="home">
+      <h2>Fact Adda E-Learning</h2>
+      <div class="grid" id="factCards"></div>
+    </section>
+
+    <section id="results" hidden>
+      <div class="rhead">
+        <h2 id="rtitle"></h2>
+        <a id="gsafe" class="btn primary" target="_blank" rel="noopener noreferrer">Open in Google SafeSearch</a>
+      </div>
+      <div id="rlist"></div>
+    </section>
+
+    <section class="card" id="histBox">
+      <div class="rhead">
+        <h2>Search history</h2>
+        <div>
+          <button id="unlockBtn" class="btn">🔒 Unlock History</button>
+          <button id="lockBtn" class="btn" hidden>Lock</button>
+          <button id="clearBtn" class="btn danger" hidden>Clear</button>
+        </div>
+      </div>
+      <p id="histLocked" class="muted">History is locked. Enter your password to view it.</p>
+      <ul id="histList" class="hist" hidden></ul>
+    </section>
+  </main>
+</div>
+
+<!-- PASSWORD PROMPT -->
+<dialog id="pwDlg">
+  <form id="pwForm" method="dialog" class="card">
+    <h3 id="pwTitle">Enter your password</h3>
+    <input id="pwInput" type="password" required autocomplete="current-password" aria-label="Password">
+    <p id="pwErr" class="err" role="alert"></p>
+    <div class="row"><button type="button" id="pwCancel" class="btn">Cancel</button><button class="btn primary" type="submit">Confirm</button></div>
+  </form>
+</dialog>
+<script src="app.js"></script>
 </body>
 </html>
