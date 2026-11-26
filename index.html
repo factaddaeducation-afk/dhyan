@@ -52,6 +52,7 @@
   </header>
   <nav class="bookmarks" id="bookmarks" aria-label="Quick bookmarks"></nav>
 
+  <nav class="tabs" aria-label="Modes"><button class="tab" id="tabBrowse" aria-selected="true">🌐 Browse</button><button class="tab" id="tabTube" aria-selected="false">▶ Study Tube</button></nav>
   <main class="wrap">
     <div id="banner" class="banner" role="alert" hidden>🚫 Dhyan Shield: Restricted Content</div>
 
@@ -63,9 +64,18 @@
     <section id="results" hidden>
       <div class="rhead">
         <h2 id="rtitle"></h2>
-        <a id="gsafe" class="btn primary" target="_blank" rel="noopener noreferrer">Open in Google SafeSearch</a>
       </div>
       <div id="rlist"></div>
+    </section>
+
+    <section id="tube" hidden>
+      <h2>Study Tube (Safe YouTube)</h2>
+      <form id="tubeForm" class="omni">
+        <input id="tubeQ" placeholder="Paste a YouTube video/playlist link or search a study topic" maxlength="200" aria-label="YouTube link or topic" autocomplete="off">
+        <button class="btn primary" type="submit">Play / Search</button>
+      </form>
+      <div id="tubePlayer" hidden><iframe id="tubeFrame" class="tubeframe" title="Study Tube player" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-presentation" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+      <div id="tubeList"></div>
     </section>
 
     <section class="card" id="histBox">
@@ -81,6 +91,17 @@
       <ul id="histList" class="hist" hidden></ul>
     </section>
   </main>
+</div>
+
+<!-- IN-APP WEB VIEWER -->
+<div id="viewer" hidden>
+  <div class="vbar">
+    <button id="vHome" class="btn sm">← Back to Home</button>
+    <form id="vForm"><input id="vUrl" aria-label="Address" autocomplete="off"></form>
+    <button id="vReload" class="btn sm" title="Reload">⟳ Reload</button>
+    <button id="vReader" class="btn sm" title="Show clean text if the page is blank">📖 Reader Mode</button>
+  </div>
+  <div id="vBody"><iframe id="vFrame" title="Web viewer" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" referrerpolicy="no-referrer" allow="fullscreen"></iframe><article id="vReaderBox" hidden></article></div>
 </div>
 
 <!-- PASSWORD PROMPT -->
