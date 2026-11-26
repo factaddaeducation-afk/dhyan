@@ -56,3 +56,19 @@ dialog .card{width:min(92vw,340px)}
 .row{display:flex;justify-content:flex-end;gap:.5em;margin-top:.6em}
 @media(max-width:640px){.brand{display:none}.user{margin-left:0}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.tabs{display:flex;gap:.5em;padding:.4em 1em;border-bottom:1px solid var(--line)}
+.tab{padding:.4em 1em;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--text);font:inherit;cursor:pointer}
+.tab[aria-selected=true]{background:var(--cyan);color:#06202e;border-color:var(--cyan);font-weight:600}
+#viewer{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+.vbar{display:flex;gap:.5em;padding:.5em;background:#0f172a;border-bottom:1px solid var(--line);align-items:center}
+.vbar form{flex:1;min-width:0}
+#vBody{flex:1;position:relative;min-height:0}
+#vFrame{width:100%;height:100%;border:0;background:#fff}
+#vReaderBox{position:absolute;inset:0;overflow:auto;padding:1.2em;line-height:1.7;background:var(--bg)}
+#vReaderBox>*{max-width:70ch;margin-left:auto;margin-right:auto}
+#vReaderBox p{white-space:pre-wrap}
+.tubeframe{width:100%;aspect-ratio:16/9;border:0;border-radius:12px;background:#000;margin:1em 0}
+.vres{display:flex;gap:.8em;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.6em;margin-bottom:.6em;color:var(--text);font:inherit;cursor:pointer}
+.vres img{width:140px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;flex:none}
+.vres small{display:block;color:var(--mute)}
