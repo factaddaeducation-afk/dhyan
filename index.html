@@ -33,6 +33,9 @@
   <header class="top">
     <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9IjExMiIgZmlsbD0iIzBiMTEyMCIvPjxwYXRoIGQ9Ik0yNTYgNjQgNDAwIDEyMHYxMThjMCA5Ni02MiAxNjgtMTQ0IDIxMEMxNzQgNDA2IDExMiAzMzQgMTEyIDIzOFYxMjB6IiBmaWxsPSIjMGYxYjMzIiBzdHJva2U9IiMzOGJkZjgiIHN0cm9rZS13aWR0aD0iMTYiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMTQ4IDI2MmMzNi01MiA2OC01MiAxMDggMHM3MiA1MiAxMDggMHYzNGMtMzYgNTItNzIgNTItMTA4IDBzLTcyLTUyLTEwOCAweiIgZmlsbD0iIzM4YmRmOCIvPjxwYXRoIGQ9Ik0xNDggMzIyYzM2LTQwIDY4LTQwIDEwOCAwczcyIDQwIDEwOCAwdjMwYy0zNiA0MC03MiA0MC0xMDggMHMtNzItNDAtMTA4IDB6IiBmaWxsPSIjMTBiOTgxIi8+PHBhdGggZD0iTTI1NiAxMDB2NDZNMjMyIDEyM2g0OCIgc3Ryb2tlPSIjMzhiZGY4IiBzdHJva2Utd2lkdGg9IjEwIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4=" alt="" width="32" height="32">
     <strong class="brand">Dhyan Surf</strong>
+    <button id="homeBtn" class="btn sm" title="Home / New Tab page" aria-label="Home">⌂</button>
+    <button id="reloadBtn" class="btn sm" title="Reload" aria-label="Reload">⟳</button>
+    <button id="readerBtn" class="btn sm" title="Reader Mode (clean text)" aria-label="Reader Mode">📖</button>
     <form id="searchForm" class="omni" role="search">
       <input id="q" type="text" placeholder="Search or type a website address" aria-label="Search or enter address" autocomplete="off" maxlength="200">
       <button class="btn primary" type="submit">Search</button>
@@ -46,39 +49,22 @@
     </div>
     <div class="user">
       <span id="whoami"></span>
+      <button id="histBtn" class="btn sm">🔒 History</button>
       <button id="switchBtn" class="btn sm">Switch</button>
       <button id="logoutBtn" class="btn sm">Log out</button>
     </div>
   </header>
   <nav class="bookmarks" id="bookmarks" aria-label="Quick bookmarks"></nav>
 
-  <nav class="tabs" aria-label="Modes"><button class="tab" id="tabBrowse" aria-selected="true">🌐 Browse</button><button class="tab" id="tabTube" aria-selected="false">▶ Study Tube</button></nav>
-  <main class="wrap">
-    <div id="banner" class="banner" role="alert" hidden>🚫 Dhyan Shield: Restricted Content</div>
-
-    <section id="home">
+  <div class="tabstrip" id="tabstrip" role="tablist" aria-label="Open tabs"></div>
+  <div id="banner" class="banner" role="alert" hidden>🚫 Dhyan Shield: Restricted Content</div>
+  <main id="panes">
+    <section id="home" class="tpane" hidden>
       <h2>Fact Adda E-Learning</h2>
       <div class="grid" id="factCards"></div>
+      <p class="muted">Type a topic in the address bar to search with Bing Strict SafeSearch, or open Study Tube from the bookmarks.</p>
     </section>
-
-    <section id="results" hidden>
-      <div class="rhead">
-        <h2 id="rtitle"></h2>
-      </div>
-      <div id="rlist"></div>
-    </section>
-
-    <section id="tube" hidden>
-      <h2>Study Tube (Safe YouTube)</h2>
-      <form id="tubeForm" class="omni">
-        <input id="tubeQ" placeholder="Paste a YouTube video/playlist link or search a study topic" maxlength="200" aria-label="YouTube link or topic" autocomplete="off">
-        <button class="btn primary" type="submit">Play / Search</button>
-      </form>
-      <div id="tubePlayer" hidden><iframe id="tubeFrame" class="tubeframe" title="Study Tube player" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-presentation" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
-      <div id="tubeList"></div>
-    </section>
-
-    <section class="card" id="histBox">
+    <section id="histBox" class="tpane card" hidden>
       <div class="rhead">
         <h2>Search history</h2>
         <div>
@@ -93,16 +79,12 @@
   </main>
 </div>
 
-<!-- IN-APP WEB VIEWER -->
-<div id="viewer" hidden>
-  <div class="vbar">
-    <button id="vHome" class="btn sm">← Back to Home</button>
-    <form id="vForm"><input id="vUrl" aria-label="Address" autocomplete="off"></form>
-    <button id="vReload" class="btn sm" title="Reload">⟳ Reload</button>
-    <button id="vReader" class="btn sm" title="Show clean text if the page is blank">📖 Reader Mode</button>
-  </div>
-  <div id="vBody"><iframe id="vFrame" title="Web viewer" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" referrerpolicy="no-referrer" allow="fullscreen"></iframe><article id="vReaderBox" hidden></article></div>
-</div>
+<template id="tubeTpl"><section class="tpane tube">
+  <h2>Study Tube (Safe YouTube)</h2>
+  <form class="omni tf"><input class="tq" placeholder="Paste a YouTube video/playlist link or search a study topic" maxlength="200" aria-label="YouTube link or topic" autocomplete="off"><button class="btn primary" type="submit">Play / Search</button></form>
+  <div class="tp" hidden><iframe class="tubeframe" title="Study Tube player" allow="accelerometer; autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen sandbox="allow-scripts allow-same-origin allow-presentation" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+  <div class="tl"></div>
+</section></template>
 
 <!-- PASSWORD PROMPT -->
 <dialog id="pwDlg">
