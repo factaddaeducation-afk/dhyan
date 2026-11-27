@@ -221,7 +221,7 @@ function setType(t, type) {
   t.title = { home: 'New Tab', history: 'History', tube: 'Study Tube', web: 'Loading…' }[type];
   if (type === 'web') {
     const p = document.createElement('div'); p.className = 'tpane web'; p.hidden = true;
-    p.innerHTML = '<iframe class="wf" title="Web page" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" referrerpolicy="no-referrer" allow="fullscreen"></iframe><article class="rd" hidden></article>';
+    p.innerHTML = '<iframe class="wf" title="Web page" referrerpolicy="no-referrer" allow="fullscreen"></iframe><article class="rd" hidden></article>';
     $('#panes').append(p); t.pane = p;
   } else if (type === 'tube') {
     const p = $('#tubeTpl').content.firstElementChild.cloneNode(true); p.hidden = true;
