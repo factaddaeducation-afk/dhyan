@@ -92,3 +92,9 @@ dialog .card{width:min(92vw,340px)}
 .rd{position:absolute;inset:0;overflow:auto;padding:1.2em;line-height:1.7;background:var(--bg)}
 .rd>*{max-width:70ch;margin-left:auto;margin-right:auto}
 .rd p{white-space:pre-wrap}
+
+.rd img{max-width:100%;height:auto;border-radius:8px;margin:.4em 0}
+.rd a{color:var(--cyan)}
+.rd li{margin:.2em 0}
+.rd .res a.t{font-size:1.05em;font-weight:600}
+#readerBtn[aria-pressed=true]{background:var(--cyan);color:#06202e;border-color:var(--cyan)}
