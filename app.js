@@ -153,7 +153,8 @@ function init() {
     const el = e.target.closest('.tab'); if (!el) return;
     e.target.closest('.x') ? closeTab(+el.dataset.id) : activate(+el.dataset.id);
   });
-  $('#reloadBtn').onclick = reloadTab; $('#homeBtn').onclick = goHome; $('#readerBtn').onclick = () => readerMode(active);
+  $('#reloadBtn').onclick = reloadTab; $('#homeBtn').onclick = goHome; $('#readerBtn').onclick = toggleReader;
+  $('#tubeBtn').onclick = () => { if (active && active.type === 'home') { setType(active, 'tube'); activate(active); } else newTab('tube'); };
   $('#histBtn').onclick = () => { const h = tabs.find(t => t.type === 'history'); h ? activate(h) : newTab('history'); };
   $('#loginForm').addEventListener('submit', async e => {
     e.preventDefault();
@@ -200,7 +201,8 @@ const PIPED = ['https://pipedapi.kavin.rocks', 'https://api.piped.private.coffee
 
 /* ---------- Multi-tab browser (max 7) ---------- */
 const MAX_TABS = 7;
-const BING = q => 'https://www.bing.com/search?q=' + encodeURIComponent(q) + '&adlt=strict';
+const EMBED_OK = ['factadda.pages.dev']; // sites that allow iframes; everything else opens in Reader view
+const JINA_KEY = ''; // optional free key from jina.ai: enables live web-wide search (s.jina.ai)
 const ICON = { home: '🏠', web: '🌐', tube: '▶', history: '🔒' };
 let tabs = [], active = null, tabSeq = 0;
 const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
@@ -211,7 +213,7 @@ const openViewer = (url, label) => navigate(url, label);
 function addTab(type) { const t = { id: ++tabSeq, type: 'home', title: '', url: '', q: '', pane: null, timer: null }; tabs.push(t); setType(t, type); return t; }
 function dropPane(t) { clearTimeout(t.timer); if (t.pane) { const f = t.pane.querySelector('iframe'); if (f) f.src = 'about:blank'; t.pane.remove(); t.pane = null; } }
 function setType(t, type) {
-  dropPane(t); t.type = type; t.url = ''; t.q = '';
+  dropPane(t); t.type = type; t.url = ''; t.q = ''; t.mode = '';
   t.title = { home: 'New Tab', history: 'History', tube: 'Study Tube', web: 'Loading…' }[type];
   if (type === 'web') {
     const p = document.createElement('div'); p.className = 'tpane web'; p.hidden = true;
@@ -233,7 +235,7 @@ function activate(x) {
   active = t; $('#banner').hidden = true;
   $('#home').hidden = t.type !== 'home'; $('#histBox').hidden = t.type !== 'history';
   tabs.forEach(a => { if (a.pane) a.pane.hidden = a !== t; });
-  $('#q').value = t.q || t.url || ''; renderStrip(); saveTabs();
+  $('#q').value = t.q || t.url || ''; setPressed(t); renderStrip(); saveTabs();
 }
 function closeTab(id) {
   const i = tabs.findIndex(t => t.id === id); if (i < 0) return; const t = tabs[i];
@@ -245,24 +247,22 @@ function renderStrip() {
   $('#tabstrip').innerHTML = tabs.map(t => `<div class="tab" role="tab" tabindex="0" data-id="${t.id}" aria-selected="${t === active}"><span class="ttl">${ICON[t.type]} ${esc(t.title)}</span><button class="x" aria-label="Close tab">×</button></div>`).join('')
     + '<button class="tabadd" aria-label="New tab" title="New tab">+</button>';
 }
-function saveTabs() { if (me) jset('ds_tabs_' + me, { a: tabs.indexOf(active), t: tabs.map(t => ({ type: t.type, url: t.url, q: t.q, title: t.title })) }); }
+function saveTabs() { if (me) jset('ds_tabs_' + me, { a: tabs.indexOf(active), t: tabs.map(t => ({ type: t.type, url: t.url, q: t.q, title: t.title, m: t.mode })) }); }
 function destroyTabs() { tabs.forEach(dropPane); tabs = []; active = null; $('#tabstrip').innerHTML = ''; }
 function resetTabs() {
   destroyTabs(); const s = jget('ds_tabs_' + me, null);
   if (s && s.t && s.t.length) {
-    s.t.slice(0, MAX_TABS).forEach(x => { const t = addTab(x.type); if (x.type === 'web' && x.url && !isBlocked(x.url)) loadTab(t, x.url, x.title, x.q || ''); });
+    s.t.slice(0, MAX_TABS).forEach(x => { const t = addTab(x.type); if (x.type === 'web') { if (x.m === 'results' && x.q) runSearch(t, x.q); else if (x.url && !isBlocked(x.url)) loadTab(t, x.url, x.title, x.q || ''); } });
     activate(tabs[Math.min(Math.max(s.a, 0), tabs.length - 1)]);
   } else newTab();
 }
 function goHome() { if (!active) return; setType(active, 'home'); activate(active); }
-function reloadTab() { const t = active; if (t && t.type === 'web' && t.url) loadTab(t, t.url, t.title, t.q); }
+function reloadTab() { const t = active; if (!t || t.type !== 'web') return; if (t.mode === 'results') runSearch(t, t.q); else if (t.url) loadTab(t, t.url, t.title, t.q); }
 
 function loadTab(t, url, title, q) {
-  const f = t.pane.querySelector('iframe'); t.pane.querySelector('.rd').hidden = true; f.hidden = false; clearTimeout(t.timer);
-  t.url = url; t.title = title; t.q = q; let ok = false; f.onload = () => { ok = true; clearTimeout(t.timer); };
-  f.src = url; activate(t);
-  if (/(^|\.)wikipedia\.org$/.test(hostOf(url))) readerMode(t); // Wikipedia refuses iframes
-  else t.timer = setTimeout(() => { if (!ok) readerMode(t); }, 9000); // never loaded: Reader Mode
+  t.url = url; t.title = title; t.q = q; activate(t);
+  const host = hostOf(url);
+  if (EMBED_OK.some(d => host === d || host.endsWith('.' + d))) showFrame(t); else readerMode(t);
 }
 function navigate(url, label) {
   url = /^https?:\/\//i.test(url) ? url : 'https://' + url;
@@ -282,30 +282,87 @@ function omnibox(raw) {
   if (ytParse(raw) || looksLikeUrl(raw)) return navigate(raw);
   let t = active; if (!t || t.type === 'history') { t = newTab(); if (!t) return; }
   log('search', raw);
-  if (t.type !== 'web') setType(t, 'web');
-  loadTab(t, BING(raw), raw, raw);
+  runSearch(t, raw);
+}
+function setPressed(t) { $('#readerBtn').setAttribute('aria-pressed', String(!!t && t.mode === 'reader')); }
+function showFrame(t) {
+  const f = t.pane.querySelector('iframe'); t.pane.querySelector('.rd').hidden = true; f.hidden = false; f.src = t.url;
+  t.mode = 'frame'; if (t === active) setPressed(t); saveTabs();
+}
+function toggleReader() {
+  const t = active; if (!t || t.type !== 'web' || !t.url) return;
+  t.mode === 'reader' ? showFrame(t) : readerMode(t);
+}
+const safeUrl = (u, base) => { try { const x = new URL(u, base); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch { return ''; } };
+function renderMd(box, md, base) {
+  let ul = null;
+  const inline = (el, txt) => {
+    const re = /!\[([^\]]*)\]\(([^)\s]+)[^)]*\)|\[([^\]]+)\]\(([^)\s]+)[^)]*\)/g; let i = 0, m;
+    while ((m = re.exec(txt))) {
+      el.append(txt.slice(i, m.index)); i = re.lastIndex;
+      const isImg = m[2] !== undefined, url = safeUrl(isImg ? m[2] : m[4], base), label = isImg ? m[1] : m[3];
+      if (isImg) { if (url && !isBlocked(url)) { const im = document.createElement('img'); im.src = url; im.alt = label.replace(/^Image \d+:\s*/, ''); im.loading = 'lazy'; im.referrerPolicy = 'no-referrer'; el.append(im); } }
+      else if (url && !isBlocked(url) && !isBlocked(label)) { const l = document.createElement('a'); l.href = url; l.dataset.t = label.slice(0, 80); l.textContent = label; el.append(l); }
+      else el.append(label);
+    }
+    el.append(txt.slice(i));
+  };
+  md.split('\n').forEach(line => {
+    line = line.trim(); let el;
+    if (!line) { ul = null; return; }
+    const hd = line.match(/^(#{1,6})\s+(.*)/);
+    if (hd) { ul = null; el = document.createElement('h' + Math.min(hd[1].length + 1, 6)); inline(el, hd[2]); }
+    else if (/^[-*]\s+/.test(line)) { if (!ul) { ul = document.createElement('ul'); box.append(ul); } el = document.createElement('li'); inline(el, line.replace(/^[-*]\s+/, '')); ul.append(el); return; }
+    else if (/^[-=_*]{3,}$/.test(line)) return;
+    else { ul = null; el = document.createElement('p'); inline(el, line.replace(/^>\s?/, '')); }
+    box.append(el);
+  });
 }
 async function readerMode(t) {
-  if (!t || t.type !== 'web' || !t.pane || !t.url) return; clearTimeout(t.timer);
+  if (!t || t.type !== 'web' || !t.pane || !t.url) return;
   const url = t.url, f = t.pane.querySelector('iframe'), box = t.pane.querySelector('.rd');
-  f.hidden = true; box.hidden = false; box.textContent = 'Loading reader view…';
+  t.mode = 'reader'; if (t === active) setPressed(t);
+  f.hidden = true; f.src = 'about:blank'; box.hidden = false; box.textContent = 'Loading reader view…';
   try {
-    let title, text; const u = new URL(url);
-    if (/(^|\.)wikipedia\.org$/.test(u.hostname)) {
-      const n = decodeURIComponent(u.pathname.split('/wiki/')[1] || u.searchParams.get('title') || '');
-      const r = await (await fetch(`https://${u.hostname}/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&origin=*&titles=${encodeURIComponent(n)}`)).json();
-      const p = Object.values(r.query.pages)[0]; title = p.title; text = p.extract || '';
-    } else {
-      const raw = await (await fetch('https://r.jina.ai/' + url, { headers: { Accept: 'text/plain' } })).text();
+    let title = '', md = '';
+    try {
+      const r = await fetch('https://r.jina.ai/' + url, { headers: JINA_KEY ? { Authorization: 'Bearer ' + JINA_KEY } : {} });
+      if (!r.ok) throw 0;
+      const raw = await r.text(), i = raw.indexOf('Markdown Content:');
       title = (raw.match(/^Title:\s*(.*)$/m) || [])[1] || hostOf(url);
-      text = raw.replace(/^(Title|URL Source|Published Time|Warning):.*$/gm, '').replace(/^Markdown Content:/m, '')
-        .replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').trim();
+      md = i >= 0 ? raw.slice(i + 17) : raw;
+    } catch {
+      const u = new URL(url); if (!/(^|\.)wikipedia\.org$/.test(u.hostname)) throw 0; // Wikipedia API fallback
+      const n = decodeURIComponent(u.pathname.split('/wiki/')[1] || '');
+      const r = await (await fetch(`https://${u.hostname}/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&origin=*&titles=${encodeURIComponent(n)}`)).json();
+      const p = Object.values(r.query.pages)[0]; title = p.title; md = (p.extract || '').replace(/\n/g, '\n\n');
     }
-    if (isBlocked(title) || isBlocked(text.slice(0, 400))) { setType(t, 'home'); activate(t); return showBlocked(url); }
-    t.title = title.slice(0, 40); renderStrip(); box.textContent = '';
+    if (isBlocked(title) || isBlocked(md.slice(0, 400))) { setType(t, 'home'); activate(t); return showBlocked(url); }
+    if (t.mode !== 'reader' || t.url !== url) return; // user moved on
+    t.title = title.slice(0, 40); renderStrip(); saveTabs(); box.textContent = '';
     const h1 = document.createElement('h1'); h1.textContent = title; box.append(h1);
-    text.slice(0, 30000).split(/\n{2,}/).forEach(s => { if (s.trim()) { const p = document.createElement('p'); p.textContent = s.trim(); box.append(p); } });
-  } catch { box.textContent = 'Reader view could not load this page. Try another source.'; }
+    renderMd(box, md.slice(0, 60000), url); box.scrollTop = 0;
+  } catch { box.textContent = 'Reader view could not load this page. The site may be unavailable. Try another source.'; }
+}
+async function runSearch(t, q) {
+  if (t.type !== 'web') setType(t, 'web');
+  t.mode = 'results'; t.url = ''; t.q = q; t.title = q; activate(t);
+  const f = t.pane.querySelector('iframe'), box = t.pane.querySelector('.rd'); f.hidden = true; f.src = 'about:blank'; box.hidden = false; box.textContent = 'Searching…';
+  const get = u => fetch(u).then(r => r.json()), enc = encodeURIComponent(q);
+  const [jn, dd, wk] = await Promise.allSettled([
+    JINA_KEY ? fetch('https://s.jina.ai/' + enc, { headers: { Accept: 'application/json', Authorization: 'Bearer ' + JINA_KEY } }).then(r => r.json()) : Promise.reject(),
+    get('https://api.duckduckgo.com/?format=json&no_html=1&skip_disambig=1&q=' + enc),
+    get('https://en.wikipedia.org/w/api.php?action=query&list=search&srlimit=10&format=json&origin=*&srsearch=' + enc)]);
+  const R = [];
+  if (jn.status === 'fulfilled') (jn.value.data || []).forEach(r => R.push({ t: r.title, u: r.url, s: r.description || '', src: 'Web' }));
+  if (dd.status === 'fulfilled') { const d = dd.value;
+    if (d.AbstractText && d.AbstractURL) R.push({ t: d.Heading || q, u: d.AbstractURL, s: d.AbstractText, src: 'DuckDuckGo', ans: 1 });
+    (d.RelatedTopics || []).filter(x => x.FirstURL).slice(0, 4).forEach(x => R.push({ t: x.Text.split(' - ')[0], u: x.FirstURL, s: x.Text, src: 'DuckDuckGo' })); }
+  if (wk.status === 'fulfilled') (wk.value.query?.search || []).forEach(r => R.push({ t: r.title, u: 'https://en.wikipedia.org/wiki/' + encodeURIComponent(r.title.replace(/ /g, '_')), s: new DOMParser().parseFromString(r.snippet, 'text/html').body.textContent + '…', src: 'Wikipedia' }));
+  const ok = R.filter(r => r.u && !/(^|\.)duckduckgo\.com$/.test(hostOf(r.u)) && !isBlocked(r.u) && !isBlocked(r.t) && !isBlocked(r.s));
+  if (t.mode !== 'results' || t.q !== q || !t.pane) return;
+  box.innerHTML = `<h1>Results for “${esc(q)}”</h1>` + (ok.map(r => `<article class="res ${r.ans ? 'ans' : ''}"><a class="t" href="${esc(r.u)}" data-t="${esc(r.t)}">${esc(r.t)}</a><div class="u">${esc(r.src)} · ${esc(r.u)}</div><p>${esc(r.s)}</p></article>`).join('')
+    || '<p class="muted">No results found. Try different words.</p>');
 }
 
 /* ---------- Study Tube (per tab) ---------- */
