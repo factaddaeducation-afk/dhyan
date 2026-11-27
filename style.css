@@ -72,3 +72,23 @@ dialog .card{width:min(92vw,340px)}
 .vres{display:flex;gap:.8em;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.6em;margin-bottom:.6em;color:var(--text);font:inherit;cursor:pointer}
 .vres img{width:140px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;flex:none}
 .vres small{display:block;color:var(--mute)}
+
+#appView{display:flex;flex-direction:column;height:100vh;height:100dvh}
+.top{position:static}
+.tabstrip{display:flex;align-items:flex-end;gap:2px;padding:.35em .6em 0;background:#0a0f1c;overflow-x:auto;border-bottom:1px solid var(--line)}
+.tab{display:flex;align-items:center;gap:.3em;min-width:96px;max-width:190px;flex:1 1 150px;padding:.4em .5em .4em .7em;border-radius:10px 10px 0 0;border:1px solid var(--line);border-bottom:0;background:#111a2e;color:var(--mute);cursor:pointer}
+.tab[aria-selected=true]{background:var(--card);color:var(--text);border-top:2px solid var(--cyan);font-weight:600}
+.ttl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.88em}
+.x{background:none;border:0;color:inherit;font-size:1.1em;cursor:pointer;border-radius:50%;width:1.6em;height:1.6em;line-height:1}
+.x:hover{background:#475569}
+.tabadd{flex:none;margin:0 0 .3em .3em;width:2em;height:2em;border-radius:50%;border:0;background:var(--card);color:var(--cyan);font-size:1.2em;cursor:pointer}
+.tabadd:hover{background:#334155}
+.banner{margin:.6em 1em 0}
+#panes{flex:1;min-height:0;position:relative}
+.tpane{position:absolute;inset:0;overflow:auto;padding:1em}
+.tpane.card{border-radius:0;border:0}
+.tpane.web{padding:0;overflow:hidden}
+.wf{width:100%;height:100%;border:0;background:#fff}
+.rd{position:absolute;inset:0;overflow:auto;padding:1.2em;line-height:1.7;background:var(--bg)}
+.rd>*{max-width:70ch;margin-left:auto;margin-right:auto}
+.rd p{white-space:pre-wrap}
