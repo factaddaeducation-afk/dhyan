@@ -60,7 +60,7 @@ async function login(name, pass) {
   me = k; localStorage.setItem('dhyan_active_user', k);
   showApp();
 }
-function logout() { closeViewer(); stopTube(); me = null; unlocked = false; localStorage.removeItem('dhyan_active_user'); showLogin(); }
+function logout() { destroyTabs(); me = null; unlocked = false; localStorage.removeItem('dhyan_active_user'); showLogin(); }
 
 /* ---------- history ---------- */
 const hkey = () => 'ds_hist_' + me;
@@ -109,44 +109,7 @@ function _isBlocked0(raw) {
 function showBlocked(q) {
   const b = $('#banner'); b.hidden = false;
   b.textContent = '🚫 Dhyan Shield: Restricted Content. This search or site is blocked for student safety.';
-  $('#results').hidden = true;
   log('blocked', q);
-}
-
-/* ---------- search ---------- */
-const looksLikeUrl = s => !/\s/.test(s) && (/^https?:\/\//i.test(s) || /^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(s));
-function openSite(url, label) { openViewer(url, label); }
-async function handleQuery(q) {
-  q = q.trim(); if (!q) return;
-  $('#banner').hidden = true;
-  if (isBlocked(q)) return showBlocked(q);
-  if (looksLikeUrl(q)) return openSite(/^https?:\/\//i.test(q) ? q : 'https://' + q);
-  log('search', q);
-  showTab('browse'); $('#home').hidden = true; $('#results').hidden = false;
-  $('#rtitle').textContent = 'Results for "' + q + '"';
-  const list = $('#rlist'); list.innerHTML = '<p class="muted">Searching…</p>';
-  const [wiki, ddg] = await Promise.allSettled([
-    fetch('https://en.wikipedia.org/w/api.php?action=query&list=search&srlimit=10&format=json&origin=*&srsearch=' + encodeURIComponent(q)).then(r => r.json()),
-    fetch('https://api.duckduckgo.com/?format=json&no_html=1&skip_disambig=1&q=' + encodeURIComponent(q)).then(r => r.json())
-  ]);
-  let html = '';
-  if (ddg.status === 'fulfilled') {
-    const d = ddg.value;
-    if (d.AbstractText) html += card(d.Heading || q, d.AbstractURL, d.AbstractText, 'ans', 'Instant answer (DuckDuckGo)');
-    (d.RelatedTopics || []).filter(t => t.FirstURL).slice(0, 4).forEach(t => html += card(t.Text.split(' - ')[0], t.FirstURL, t.Text, '', 'Related (DuckDuckGo)'));
-  }
-  if (wiki.status === 'fulfilled') {
-    (wiki.value.query?.search || []).forEach(r => {
-      const snip = new DOMParser().parseFromString(r.snippet, 'text/html').body.textContent;
-      html += card(r.title, 'https://en.wikipedia.org/wiki/' + encodeURIComponent(r.title.replace(/ /g, '_')), snip + '…', '', 'Wikipedia');
-    });
-  }
-  list.innerHTML = html || '<p class="muted">No results found. Try different words, or use the Google SafeSearch button above.</p>';
-  if (wiki.status === 'rejected' && ddg.status === 'rejected') list.innerHTML = '<p class="err">Could not reach search services. Check your internet connection.</p>';
-}
-function card(title, url, text, cls, src) {
-  if (isBlocked(url) || isBlocked(title)) return '';
-  return `<article class="res ${cls}"><a class="t" href="${esc(url)}" data-t="${esc(title)}">${esc(title)}</a><div class="u">${esc(src)} · ${esc(url)}</div><p>${esc(text)}</p></article>`;
 }
 
 /* ---------- Pomodoro ---------- */
@@ -178,17 +141,20 @@ function showLogin() {
 function showApp() {
   $('#loginView').hidden = true; $('#appView').hidden = false;
   $('#whoami').textContent = users()[me].name;
-  $('#home').hidden = false; $('#results').hidden = true; $('#banner').hidden = true; $('#q').value = '';
-  setLock(true); showTab('browse');
+  $('#banner').hidden = true; $('#q').value = '';
+  setLock(true); resetTabs();
 }
 function init() {
   $('#factCards').innerHTML = FACT_CARDS.map(c => `<a class="fcard" href="${c[2]}" data-t="${esc(c[0])}">${esc(c[0])}<small>${esc(c[1])}</small></a>`).join('');
   $('#bookmarks').innerHTML = BOOKMARKS.map(b => `<a href="${b[1]}" data-t="${esc(b[0])}">${esc(b[0])}</a>`).join('');
   document.addEventListener('click', e => { const a = e.target.closest('a[data-t]'); if (a) { e.preventDefault(); openViewer(a.href, a.dataset.t); } });
-  $('#tabBrowse').onclick = () => showTab('browse'); $('#tabTube').onclick = () => showTab('tube');
-  $('#vHome').onclick = closeViewer; $('#vReload').onclick = () => openViewer(vUrl, null, true); $('#vReader').onclick = () => readerMode(vUrl);
-  $('#vForm').addEventListener('submit', e => { e.preventDefault(); const v = $('#vUrl').value.trim(); looksLikeUrl(v) ? openViewer(v) : (closeViewer(), handleQuery(v)); });
-  $('#tubeForm').addEventListener('submit', e => { e.preventDefault(); tubeGo($('#tubeQ').value); });
+  $('#tabstrip').addEventListener('click', e => {
+    if (e.target.closest('.tabadd')) return newTab('home');
+    const el = e.target.closest('.tab'); if (!el) return;
+    e.target.closest('.x') ? closeTab(+el.dataset.id) : activate(+el.dataset.id);
+  });
+  $('#reloadBtn').onclick = reloadTab; $('#homeBtn').onclick = goHome; $('#readerBtn').onclick = () => readerMode(active);
+  $('#histBtn').onclick = () => { const h = tabs.find(t => t.type === 'history'); h ? activate(h) : newTab('history'); };
   $('#loginForm').addEventListener('submit', async e => {
     e.preventDefault();
     try { await login($('#uName').value, $('#uPass').value); } catch (x) { $('#loginErr').textContent = x.message; }
@@ -214,55 +180,7 @@ function init() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
-/* ---------- In-app viewer (iframe + Reader Mode) ---------- */
-let vUrl = '', vTimer = null;
-const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
-function openViewer(url, label, noLog) {
-  url = /^https?:\/\//i.test(url) ? url : 'https://' + url;
-  if (isBlocked(url) || isBlocked(label || '')) { closeViewer(); return showBlocked(url); }
-  const yt = ytParse(url);
-  if (yt) { closeViewer(); showTab('tube'); return tubePlay(yt); }
-  if (!noLog) log('visit', label ? label + ' (' + url + ')' : url);
-  vUrl = url; $('#viewer').hidden = false; document.body.style.overflow = 'hidden'; $('#vUrl').value = url;
-  if (/(^|\.)wikipedia\.org$/.test(hostOf(url))) return readerMode(url); // Wikipedia refuses iframes
-  loadFrame(url);
-}
-function loadFrame(url) {
-  clearTimeout(vTimer); $('#vReaderBox').hidden = true;
-  const f = $('#vFrame'); f.hidden = false; let ok = false;
-  f.onload = () => { ok = true; clearTimeout(vTimer); };
-  f.src = 'about:blank'; setTimeout(() => f.src = url, 30);
-  vTimer = setTimeout(() => { if (!ok) readerMode(url); }, 9000); // never loaded: fall back to Reader Mode
-}
-function closeViewer() { clearTimeout(vTimer); $('#vFrame').src = 'about:blank'; $('#viewer').hidden = true; document.body.style.overflow = ''; }
-async function readerMode(url) {
-  clearTimeout(vTimer); $('#vFrame').hidden = true;
-  const box = $('#vReaderBox'); box.hidden = false; box.textContent = 'Loading reader view…';
-  try {
-    let title, text; const u = new URL(url);
-    if (/(^|\.)wikipedia\.org$/.test(u.hostname)) {
-      const t = decodeURIComponent(u.pathname.split('/wiki/')[1] || u.searchParams.get('title') || '');
-      const r = await (await fetch(`https://${u.hostname}/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&origin=*&titles=${encodeURIComponent(t)}`)).json();
-      const p = Object.values(r.query.pages)[0]; title = p.title; text = p.extract || '';
-    } else {
-      const raw = await (await fetch('https://r.jina.ai/' + url, { headers: { Accept: 'text/plain' } })).text();
-      title = (raw.match(/^Title:\s*(.*)$/m) || [])[1] || hostOf(url);
-      text = raw.replace(/^(Title|URL Source|Published Time|Warning):.*$/gm, '').replace(/^Markdown Content:/m, '')
-        .replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').trim();
-    }
-    if (isBlocked(title) || isBlocked(text.slice(0, 400))) { closeViewer(); return showBlocked(url); }
-    box.textContent = '';
-    const h1 = document.createElement('h1'); h1.textContent = title; box.append(h1);
-    text.slice(0, 30000).split(/\n{2,}/).forEach(t => { if (t.trim()) { const p = document.createElement('p'); p.textContent = t.trim(); box.append(p); } });
-  } catch { box.textContent = 'Reader view could not load this page. Try another source.'; }
-}
-
 /* ---------- Study Tube ---------- */
-function showTab(t) {
-  const tube = t === 'tube';
-  $('#tube').hidden = !tube; $('#home').hidden = tube; $('#results').hidden = true;
-  $('#tabBrowse').setAttribute('aria-selected', !tube); $('#tabTube').setAttribute('aria-selected', tube);
-}
 function ytBlocked(q) {
   if (isBlocked(q)) return true;
   const flat = ' ' + q.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).join(' ') + ' ';
@@ -277,24 +195,135 @@ function ytParse(s) {
   const r = { video: /^[\w-]{11}$/.test(id) ? id : '', list: /^[\w-]+$/.test(list) ? list : '' };
   return r.video || r.list ? r : null;
 }
-function tubePlay(p) {
-  $('#banner').hidden = true;
+const PIPED = ['https://pipedapi.kavin.rocks', 'https://api.piped.private.coffee', 'https://pipedapi.adminforge.de'];
+
+
+/* ---------- Multi-tab browser (max 7) ---------- */
+const MAX_TABS = 7;
+const BING = q => 'https://www.bing.com/search?q=' + encodeURIComponent(q) + '&adlt=strict';
+const ICON = { home: '🏠', web: '🌐', tube: '▶', history: '🔒' };
+let tabs = [], active = null, tabSeq = 0;
+const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+const looksLikeUrl = s => !/\s/.test(s) && (/^https?:\/\//i.test(s) || /^[\w-]+(\.[\w-]+)+(\/.*)?$/.test(s));
+const handleQuery = q => omnibox(q);
+const openViewer = (url, label) => navigate(url, label);
+
+function addTab(type) { const t = { id: ++tabSeq, type: 'home', title: '', url: '', q: '', pane: null, timer: null }; tabs.push(t); setType(t, type); return t; }
+function dropPane(t) { clearTimeout(t.timer); if (t.pane) { const f = t.pane.querySelector('iframe'); if (f) f.src = 'about:blank'; t.pane.remove(); t.pane = null; } }
+function setType(t, type) {
+  dropPane(t); t.type = type; t.url = ''; t.q = '';
+  t.title = { home: 'New Tab', history: 'History', tube: 'Study Tube', web: 'Loading…' }[type];
+  if (type === 'web') {
+    const p = document.createElement('div'); p.className = 'tpane web'; p.hidden = true;
+    p.innerHTML = '<iframe class="wf" title="Web page" sandbox="allow-scripts allow-same-origin allow-forms allow-presentation" referrerpolicy="no-referrer" allow="fullscreen"></iframe><article class="rd" hidden></article>';
+    $('#panes').append(p); t.pane = p;
+  } else if (type === 'tube') {
+    const p = $('#tubeTpl').content.firstElementChild.cloneNode(true); p.hidden = true;
+    p.querySelector('.tf').onsubmit = e => { e.preventDefault(); tubeGo(t, p.querySelector('.tq').value); };
+    p.querySelector('.tl').onclick = e => { const b = e.target.closest('[data-v]'); if (b) tubePlay(t, { video: b.dataset.v, list: '' }); };
+    $('#panes').append(p); t.pane = p;
+  }
+}
+function newTab(type = 'home') {
+  if (tabs.length >= MAX_TABS) { alert('Maximum 7 tabs allowed for focused study'); return null; }
+  const t = addTab(type); activate(t); return t;
+}
+function activate(x) {
+  const t = typeof x === 'number' ? tabs.find(a => a.id === x) : x; if (!t) return;
+  active = t; $('#banner').hidden = true;
+  $('#home').hidden = t.type !== 'home'; $('#histBox').hidden = t.type !== 'history';
+  tabs.forEach(a => { if (a.pane) a.pane.hidden = a !== t; });
+  $('#q').value = t.q || t.url || ''; renderStrip(); saveTabs();
+}
+function closeTab(id) {
+  const i = tabs.findIndex(t => t.id === id); if (i < 0) return; const t = tabs[i];
+  dropPane(t); tabs.splice(i, 1);
+  if (!tabs.length) return newTab();
+  if (active === t) activate(tabs[Math.min(i, tabs.length - 1)]); else { renderStrip(); saveTabs(); }
+}
+function renderStrip() {
+  $('#tabstrip').innerHTML = tabs.map(t => `<div class="tab" role="tab" tabindex="0" data-id="${t.id}" aria-selected="${t === active}"><span class="ttl">${ICON[t.type]} ${esc(t.title)}</span><button class="x" aria-label="Close tab">×</button></div>`).join('')
+    + '<button class="tabadd" aria-label="New tab" title="New tab">+</button>';
+}
+function saveTabs() { if (me) jset('ds_tabs_' + me, { a: tabs.indexOf(active), t: tabs.map(t => ({ type: t.type, url: t.url, q: t.q, title: t.title })) }); }
+function destroyTabs() { tabs.forEach(dropPane); tabs = []; active = null; $('#tabstrip').innerHTML = ''; }
+function resetTabs() {
+  destroyTabs(); const s = jget('ds_tabs_' + me, null);
+  if (s && s.t && s.t.length) {
+    s.t.slice(0, MAX_TABS).forEach(x => { const t = addTab(x.type); if (x.type === 'web' && x.url && !isBlocked(x.url)) loadTab(t, x.url, x.title, x.q || ''); });
+    activate(tabs[Math.min(Math.max(s.a, 0), tabs.length - 1)]);
+  } else newTab();
+}
+function goHome() { if (!active) return; setType(active, 'home'); activate(active); }
+function reloadTab() { const t = active; if (t && t.type === 'web' && t.url) loadTab(t, t.url, t.title, t.q); }
+
+function loadTab(t, url, title, q) {
+  const f = t.pane.querySelector('iframe'); t.pane.querySelector('.rd').hidden = true; f.hidden = false; clearTimeout(t.timer);
+  t.url = url; t.title = title; t.q = q; let ok = false; f.onload = () => { ok = true; clearTimeout(t.timer); };
+  f.src = url; activate(t);
+  if (/(^|\.)wikipedia\.org$/.test(hostOf(url))) readerMode(t); // Wikipedia refuses iframes
+  else t.timer = setTimeout(() => { if (!ok) readerMode(t); }, 9000); // never loaded: Reader Mode
+}
+function navigate(url, label) {
+  url = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+  if (isBlocked(url) || isBlocked(label || '')) return showBlocked(url);
+  const yt = ytParse(url); let t = active;
+  if (yt && t && t.type === 'tube') return tubePlay(t, yt);
+  if (!t || t.type === 'tube' || t.type === 'history') { t = newTab(); if (!t) return; }
+  if (yt) { setType(t, 'tube'); activate(t); return tubePlay(t, yt); }
+  log('visit', label ? label + ' (' + url + ')' : url);
+  if (t.type !== 'web') setType(t, 'web');
+  loadTab(t, url, label || hostOf(url), '');
+}
+function omnibox(raw) {
+  raw = raw.trim(); if (!raw) return; $('#banner').hidden = true;
+  if (active && active.type === 'tube') return tubeGo(active, raw);
+  if (isBlocked(raw)) return showBlocked(raw);
+  if (ytParse(raw) || looksLikeUrl(raw)) return navigate(raw);
+  let t = active; if (!t || t.type === 'history') { t = newTab(); if (!t) return; }
+  log('search', raw);
+  if (t.type !== 'web') setType(t, 'web');
+  loadTab(t, BING(raw), raw, raw);
+}
+async function readerMode(t) {
+  if (!t || t.type !== 'web' || !t.pane || !t.url) return; clearTimeout(t.timer);
+  const url = t.url, f = t.pane.querySelector('iframe'), box = t.pane.querySelector('.rd');
+  f.hidden = true; box.hidden = false; box.textContent = 'Loading reader view…';
+  try {
+    let title, text; const u = new URL(url);
+    if (/(^|\.)wikipedia\.org$/.test(u.hostname)) {
+      const n = decodeURIComponent(u.pathname.split('/wiki/')[1] || u.searchParams.get('title') || '');
+      const r = await (await fetch(`https://${u.hostname}/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&origin=*&titles=${encodeURIComponent(n)}`)).json();
+      const p = Object.values(r.query.pages)[0]; title = p.title; text = p.extract || '';
+    } else {
+      const raw = await (await fetch('https://r.jina.ai/' + url, { headers: { Accept: 'text/plain' } })).text();
+      title = (raw.match(/^Title:\s*(.*)$/m) || [])[1] || hostOf(url);
+      text = raw.replace(/^(Title|URL Source|Published Time|Warning):.*$/gm, '').replace(/^Markdown Content:/m, '')
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').trim();
+    }
+    if (isBlocked(title) || isBlocked(text.slice(0, 400))) { setType(t, 'home'); activate(t); return showBlocked(url); }
+    t.title = title.slice(0, 40); renderStrip(); box.textContent = '';
+    const h1 = document.createElement('h1'); h1.textContent = title; box.append(h1);
+    text.slice(0, 30000).split(/\n{2,}/).forEach(s => { if (s.trim()) { const p = document.createElement('p'); p.textContent = s.trim(); box.append(p); } });
+  } catch { box.textContent = 'Reader view could not load this page. Try another source.'; }
+}
+
+/* ---------- Study Tube (per tab) ---------- */
+function tubePlay(t, p) {
+  if (!t.pane) return; $('#banner').hidden = true;
   const src = p.video
     ? `https://www.youtube-nocookie.com/embed/${p.video}?rel=0&modestbranding=1&playsinline=1` + (p.list ? '&list=' + p.list : '')
     : `https://www.youtube-nocookie.com/embed/videoseries?list=${p.list}&rel=0`;
-  $('#tubeFrame').src = src; $('#tubePlayer').hidden = false;
-  log('visit', '▶ YouTube ' + (p.video || 'playlist ' + p.list));
+  t.pane.querySelector('iframe').src = src; t.pane.querySelector('.tp').hidden = false;
+  log('visit', '▶ YouTube ' + (p.video || 'playlist ' + p.list)); renderStrip();
 }
-function stopTube() { const f = $('#tubeFrame'); if (f) f.src = 'about:blank'; }
-const PIPED = ['https://pipedapi.kavin.rocks', 'https://api.piped.private.coffee', 'https://pipedapi.adminforge.de'];
-async function tubeGo(q) {
+async function tubeGo(t, q) {
   q = q.trim(); if (!q) return;
-  const p = ytParse(q);
-  if (p) return tubePlay(p);
-  if (looksLikeUrl(q)) return openViewer(q);
+  const p = ytParse(q); if (p) return tubePlay(t, p);
+  if (looksLikeUrl(q)) { if (isBlocked(q)) return showBlocked(q); const n = newTab(); return n && navigate(q); }
   if (ytBlocked(q)) return showBlocked(q);
   $('#banner').hidden = true; log('search', '▶ ' + q);
-  const list = $('#tubeList'); list.innerHTML = '<p class="muted">Searching educational videos…</p>';
+  const list = t.pane.querySelector('.tl'); list.innerHTML = '<p class="muted">Searching educational videos…</p>';
   for (const base of PIPED) {
     try {
       const d = await (await fetch(`${base}/search?filter=videos&q=${encodeURIComponent(q + ' educational lecture explained')}`)).json();
@@ -302,7 +331,6 @@ async function tubeGo(q) {
         .filter(v => v.id && !ytBlocked(v.t) && !ytBlocked(v.by)).slice(0, 10);
       list.innerHTML = items.map(v => `<button class="vres" data-v="${v.id}"><img loading="lazy" alt="" src="https://i.ytimg.com/vi/${v.id}/mqdefault.jpg"><span>${esc(v.t)}<small>${esc(v.by)}</small></span></button>`).join('')
         || '<p class="muted">No safe educational videos found. Try different words.</p>';
-      list.onclick = e => { const b = e.target.closest('[data-v]'); if (b) { tubePlay({ video: b.dataset.v, list: '' }); scrollTo({ top: 0, behavior: 'smooth' }); } };
       return;
     } catch {}
   }
