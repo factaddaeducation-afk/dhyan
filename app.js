@@ -202,6 +202,10 @@ const PIPED = ['https://pipedapi.kavin.rocks', 'https://api.piped.private.coffee
 /* ---------- Multi-tab browser (max 7) ---------- */
 const MAX_TABS = 7;
 const EMBED_OK = ['factadda.pages.dev']; // sites that allow iframes; everything else opens in Reader view
+// Full prefix of YOUR Cloudflare Worker; the encoded target URL is appended to it.
+// Example: 'https://dhyan-proxy.YOURNAME.workers.dev/?url='   (leave '' until the worker is live)
+const PROXY_PREFIX = '';
+const ALLORIGINS = 'https://api.allorigins.win/raw?url='; // fallback for fetching search pages (not used for iframes)
 const JINA_KEY = ''; // optional free key from jina.ai: enables live web-wide search (s.jina.ai)
 const ICON = { home: '🏠', web: '🌐', tube: '▶', history: '🔒' };
 let tabs = [], active = null, tabSeq = 0;
@@ -261,8 +265,7 @@ function reloadTab() { const t = active; if (!t || t.type !== 'web') return; if 
 
 function loadTab(t, url, title, q) {
   t.url = url; t.title = title; t.q = q; activate(t);
-  const host = hostOf(url);
-  if (EMBED_OK.some(d => host === d || host.endsWith('.' + d))) showFrame(t); else readerMode(t);
+  if (frameSrc(url)) showFrame(t); else readerMode(t); // no proxy configured: Reader view instead of a gray screen
 }
 function navigate(url, label) {
   url = /^https?:\/\//i.test(url) ? url : 'https://' + url;
@@ -285,9 +288,18 @@ function omnibox(raw) {
   runSearch(t, raw);
 }
 function setPressed(t) { $('#readerBtn').setAttribute('aria-pressed', String(!!t && t.mode === 'reader')); }
+const isEmbedOk = h => EMBED_OK.some(d => h === d || h.endsWith('.' + d));
+function frameSrc(url) { // what the iframe should load for a page ('' = use Reader view)
+  if (isBlocked(url)) return '';
+  if (isEmbedOk(hostOf(url))) return url;
+  return PROXY_PREFIX ? PROXY_PREFIX + encodeURIComponent(url) : '';
+}
 function showFrame(t) {
-  const f = t.pane.querySelector('iframe'); t.pane.querySelector('.rd').hidden = true; f.hidden = false; f.src = t.url;
-  t.mode = 'frame'; if (t === active) setPressed(t); saveTabs();
+  const url = t.url, src = frameSrc(url); if (!src) return readerMode(t);
+  const f = t.pane.querySelector('iframe'); t.pane.querySelector('.rd').hidden = true; f.hidden = false; clearTimeout(t.timer);
+  let ok = false; f.onload = () => { ok = true; clearTimeout(t.timer); };
+  f.src = src; t.mode = 'frame'; if (t === active) setPressed(t); saveTabs();
+  if (src !== url) t.timer = setTimeout(() => { if (!ok && t.mode === 'frame' && t.url === url) readerMode(t); }, 15000); // proxy never answered
 }
 function toggleReader() {
   const t = active; if (!t || t.type !== 'web' || !t.url) return;
@@ -344,25 +356,49 @@ async function readerMode(t) {
     renderMd(box, md.slice(0, 60000), url); box.scrollTop = 0;
   } catch { box.textContent = 'Reader view could not load this page. The site may be unavailable. Try another source.'; }
 }
+async function fetchHtml(target) { // Worker first, allorigins as fallback
+  const tries = [];
+  if (PROXY_PREFIX) tries.push(PROXY_PREFIX + encodeURIComponent(target));
+  tries.push(ALLORIGINS + encodeURIComponent(target));
+  for (const u of tries) {
+    try { const r = await fetch(u, { signal: AbortSignal.timeout(9000) }); if (!r.ok) continue; const h = await r.text(); if (h.includes('result')) return h; } catch {}
+  }
+  throw new Error('search page unreachable');
+}
+function parseDdg(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html'), out = [];
+  doc.querySelectorAll('.result').forEach(el => {
+    if (el.classList.contains('result--ad')) return;
+    const a = el.querySelector('.result__a'); if (!a) return;
+    let href = a.getAttribute('href') || '';
+    try { const u = new URL(href.startsWith('//') ? 'https:' + href : href, 'https://duckduckgo.com'); href = u.searchParams.get('uddg') || u.href; } catch {}
+    href = safeUrl(href);
+    if (href) out.push({ t: a.textContent.trim(), u: href, s: (el.querySelector('.result__snippet')?.textContent || '').trim(), src: 'Web' });
+  });
+  return out;
+}
 async function runSearch(t, q) {
   if (t.type !== 'web') setType(t, 'web');
   t.mode = 'results'; t.url = ''; t.q = q; t.title = q; activate(t);
   const f = t.pane.querySelector('iframe'), box = t.pane.querySelector('.rd'); f.hidden = true; f.src = 'about:blank'; box.hidden = false; box.textContent = 'Searching…';
-  const get = u => fetch(u).then(r => r.json()), enc = encodeURIComponent(q);
-  const [jn, dd, wk] = await Promise.allSettled([
+  const get = u => fetch(u, { signal: AbortSignal.timeout(9000) }).then(r => r.json()), enc = encodeURIComponent(q);
+  const [jn, web, ab, wk] = await Promise.allSettled([
     JINA_KEY ? fetch('https://s.jina.ai/' + enc, { headers: { Accept: 'application/json', Authorization: 'Bearer ' + JINA_KEY } }).then(r => r.json()) : Promise.reject(),
+    fetchHtml('https://html.duckduckgo.com/html/?kp=1&q=' + enc).then(parseDdg), // kp=1: strict SafeSearch
     get('https://api.duckduckgo.com/?format=json&no_html=1&skip_disambig=1&q=' + enc),
     get('https://en.wikipedia.org/w/api.php?action=query&list=search&srlimit=10&format=json&origin=*&srsearch=' + enc)]);
   const R = [];
+  if (ab.status === 'fulfilled' && ab.value.AbstractText && ab.value.AbstractURL) R.push({ t: ab.value.Heading || q, u: ab.value.AbstractURL, s: ab.value.AbstractText, src: 'DuckDuckGo', ans: 1 });
   if (jn.status === 'fulfilled') (jn.value.data || []).forEach(r => R.push({ t: r.title, u: r.url, s: r.description || '', src: 'Web' }));
-  if (dd.status === 'fulfilled') { const d = dd.value;
-    if (d.AbstractText && d.AbstractURL) R.push({ t: d.Heading || q, u: d.AbstractURL, s: d.AbstractText, src: 'DuckDuckGo', ans: 1 });
-    (d.RelatedTopics || []).filter(x => x.FirstURL).slice(0, 4).forEach(x => R.push({ t: x.Text.split(' - ')[0], u: x.FirstURL, s: x.Text, src: 'DuckDuckGo' })); }
+  if (web.status === 'fulfilled') R.push(...web.value);
+  else if (ab.status === 'fulfilled') (ab.value.RelatedTopics || []).filter(x => x.FirstURL).slice(0, 4).forEach(x => R.push({ t: x.Text.split(' - ')[0], u: x.FirstURL, s: x.Text, src: 'DuckDuckGo' }));
   if (wk.status === 'fulfilled') (wk.value.query?.search || []).forEach(r => R.push({ t: r.title, u: 'https://en.wikipedia.org/wiki/' + encodeURIComponent(r.title.replace(/ /g, '_')), s: new DOMParser().parseFromString(r.snippet, 'text/html').body.textContent + '…', src: 'Wikipedia' }));
-  const ok = R.filter(r => r.u && !/(^|\.)duckduckgo\.com$/.test(hostOf(r.u)) && !isBlocked(r.u) && !isBlocked(r.t) && !isBlocked(r.s));
+  const seen = new Set();
+  const ok = R.filter(r => r.u && !/(^|\.)duckduckgo\.com$/.test(hostOf(r.u)) && !isBlocked(r.u) && !isBlocked(r.t) && !isBlocked(r.s) && !seen.has(r.u) && seen.add(r.u));
   if (t.mode !== 'results' || t.q !== q || !t.pane) return;
+  const down = web.status === 'rejected' && wk.status === 'rejected';
   box.innerHTML = `<h1>Results for “${esc(q)}”</h1>` + (ok.map(r => `<article class="res ${r.ans ? 'ans' : ''}"><a class="t" href="${esc(r.u)}" data-t="${esc(r.t)}">${esc(r.t)}</a><div class="u">${esc(r.src)} · ${esc(r.u)}</div><p>${esc(r.s)}</p></article>`).join('')
-    || '<p class="muted">No results found. Try different words.</p>');
+    || (down ? '<p class="err">Search services could not be reached. Check the internet connection and try again.</p>' : '<p class="muted">No results found. Try different words.</p>'));
 }
 
 /* ---------- Study Tube (per tab) ---------- */
