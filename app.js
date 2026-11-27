@@ -204,7 +204,8 @@ const MAX_TABS = 7;
 const EMBED_OK = ['factadda.pages.dev']; // sites that allow iframes; everything else opens in Reader view
 // Full prefix of YOUR Cloudflare Worker; the encoded target URL is appended to it.
 // Example: 'https://dhyan-proxy.YOURNAME.workers.dev/?url='   (leave '' until the worker is live)
-const PROXY_PREFIX = 'https://dhyan.factaddaeducation.workers.dev/';
+const PROXY_PREFIX = 'const PROXY_PREFIX = 'https://workers.dev';
+';
 const ALLORIGINS = 'https://api.allorigins.win/raw?url='; // fallback for fetching search pages (not used for iframes)
 const JINA_KEY = ''; // optional free key from jina.ai: enables live web-wide search (s.jina.ai)
 const ICON = { home: '🏠', web: '🌐', tube: '▶', history: '🔒' };
