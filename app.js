@@ -153,7 +153,7 @@ function init() {
     const el = e.target.closest('.tab'); if (!el) return;
     e.target.closest('.x') ? closeTab(+el.dataset.id) : activate(+el.dataset.id);
   });
-  $('#reloadBtn').onclick = reloadTab; $('#homeBtn').onclick = goHome; $('#readerBtn').onclick = toggleReader;
+  $('#reloadBtn').onclick = reloadTab; $('#homeBtn').onclick = goHome;
   $('#tubeBtn').onclick = () => { if (active && active.type === 'home') { setType(active, 'tube'); activate(active); } else newTab('tube'); };
   $('#histBtn').onclick = () => { const h = tabs.find(t => t.type === 'history'); h ? activate(h) : newTab('history'); };
   $('#loginForm').addEventListener('submit', async e => {
@@ -204,7 +204,7 @@ const MAX_TABS = 7;
 const EMBED_OK = ['factadda.pages.dev']; // sites that allow iframes; everything else opens in Reader view
 // Full prefix of YOUR Cloudflare Worker; the encoded target URL is appended to it.
 // Example: 'https://dhyan-proxy.YOURNAME.workers.dev/?url='   (leave '' until the worker is live)
-const PROXY_PREFIX = '';
+const PROXY_PREFIX = 'https://dhyan.factaddaeducation.workers.dev/';
 const ALLORIGINS = 'https://api.allorigins.win/raw?url='; // fallback for fetching search pages (not used for iframes)
 const JINA_KEY = ''; // optional free key from jina.ai: enables live web-wide search (s.jina.ai)
 const ICON = { home: '🏠', web: '🌐', tube: '▶', history: '🔒' };
@@ -239,7 +239,7 @@ function activate(x) {
   active = t; $('#banner').hidden = true;
   $('#home').hidden = t.type !== 'home'; $('#histBox').hidden = t.type !== 'history';
   tabs.forEach(a => { if (a.pane) a.pane.hidden = a !== t; });
-  $('#q').value = t.q || t.url || ''; setPressed(t); renderStrip(); saveTabs();
+  $('#q').value = t.q || t.url || ''; renderStrip(); saveTabs();
 }
 function closeTab(id) {
   const i = tabs.findIndex(t => t.id === id); if (i < 0) return; const t = tabs[i];
@@ -265,7 +265,7 @@ function reloadTab() { const t = active; if (!t || t.type !== 'web') return; if 
 
 function loadTab(t, url, title, q) {
   t.url = url; t.title = title; t.q = q; activate(t);
-  if (frameSrc(url)) showFrame(t); else readerMode(t); // no proxy configured: Reader view instead of a gray screen
+  showFrame(t); // every site loads in the iframe (through the Worker when needed)
 }
 function navigate(url, label) {
   url = /^https?:\/\//i.test(url) ? url : 'https://' + url;
@@ -287,7 +287,6 @@ function omnibox(raw) {
   log('search', raw);
   runSearch(t, raw);
 }
-function setPressed(t) { $('#readerBtn').setAttribute('aria-pressed', String(!!t && t.mode === 'reader')); }
 const isEmbedOk = h => EMBED_OK.some(d => h === d || h.endsWith('.' + d));
 function frameSrc(url) { // what the iframe should load for a page ('' = use Reader view)
   if (isBlocked(url)) return '';
@@ -295,67 +294,12 @@ function frameSrc(url) { // what the iframe should load for a page ('' = use Rea
   return PROXY_PREFIX ? PROXY_PREFIX + encodeURIComponent(url) : '';
 }
 function showFrame(t) {
-  const url = t.url, src = frameSrc(url); if (!src) return readerMode(t);
-  const f = t.pane.querySelector('iframe'); t.pane.querySelector('.rd').hidden = true; f.hidden = false; clearTimeout(t.timer);
-  let ok = false; f.onload = () => { ok = true; clearTimeout(t.timer); };
-  f.src = src; t.mode = 'frame'; if (t === active) setPressed(t); saveTabs();
-  if (src !== url) t.timer = setTimeout(() => { if (!ok && t.mode === 'frame' && t.url === url) readerMode(t); }, 15000); // proxy never answered
-}
-function toggleReader() {
-  const t = active; if (!t || t.type !== 'web' || !t.url) return;
-  t.mode === 'reader' ? showFrame(t) : readerMode(t);
+  const url = t.url, src = frameSrc(url);
+  if (!src) { setType(t, 'home'); activate(t); return showBlocked(url); } // blocked address
+  const f = t.pane.querySelector('iframe'); t.pane.querySelector('.rd').hidden = true; f.hidden = false;
+  f.src = src; t.mode = 'frame'; saveTabs();
 }
 const safeUrl = (u, base) => { try { const x = new URL(u, base); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch { return ''; } };
-function renderMd(box, md, base) {
-  let ul = null;
-  const inline = (el, txt) => {
-    const re = /!\[([^\]]*)\]\(([^)\s]+)[^)]*\)|\[([^\]]+)\]\(([^)\s]+)[^)]*\)/g; let i = 0, m;
-    while ((m = re.exec(txt))) {
-      el.append(txt.slice(i, m.index)); i = re.lastIndex;
-      const isImg = m[2] !== undefined, url = safeUrl(isImg ? m[2] : m[4], base), label = isImg ? m[1] : m[3];
-      if (isImg) { if (url && !isBlocked(url)) { const im = document.createElement('img'); im.src = url; im.alt = label.replace(/^Image \d+:\s*/, ''); im.loading = 'lazy'; im.referrerPolicy = 'no-referrer'; el.append(im); } }
-      else if (url && !isBlocked(url) && !isBlocked(label)) { const l = document.createElement('a'); l.href = url; l.dataset.t = label.slice(0, 80); l.textContent = label; el.append(l); }
-      else el.append(label);
-    }
-    el.append(txt.slice(i));
-  };
-  md.split('\n').forEach(line => {
-    line = line.trim(); let el;
-    if (!line) { ul = null; return; }
-    const hd = line.match(/^(#{1,6})\s+(.*)/);
-    if (hd) { ul = null; el = document.createElement('h' + Math.min(hd[1].length + 1, 6)); inline(el, hd[2]); }
-    else if (/^[-*]\s+/.test(line)) { if (!ul) { ul = document.createElement('ul'); box.append(ul); } el = document.createElement('li'); inline(el, line.replace(/^[-*]\s+/, '')); ul.append(el); return; }
-    else if (/^[-=_*]{3,}$/.test(line)) return;
-    else { ul = null; el = document.createElement('p'); inline(el, line.replace(/^>\s?/, '')); }
-    box.append(el);
-  });
-}
-async function readerMode(t) {
-  if (!t || t.type !== 'web' || !t.pane || !t.url) return;
-  const url = t.url, f = t.pane.querySelector('iframe'), box = t.pane.querySelector('.rd');
-  t.mode = 'reader'; if (t === active) setPressed(t);
-  f.hidden = true; f.src = 'about:blank'; box.hidden = false; box.textContent = 'Loading reader view…';
-  try {
-    let title = '', md = '';
-    try {
-      const r = await fetch('https://r.jina.ai/' + url, { headers: JINA_KEY ? { Authorization: 'Bearer ' + JINA_KEY } : {} });
-      if (!r.ok) throw 0;
-      const raw = await r.text(), i = raw.indexOf('Markdown Content:');
-      title = (raw.match(/^Title:\s*(.*)$/m) || [])[1] || hostOf(url);
-      md = i >= 0 ? raw.slice(i + 17) : raw;
-    } catch {
-      const u = new URL(url); if (!/(^|\.)wikipedia\.org$/.test(u.hostname)) throw 0; // Wikipedia API fallback
-      const n = decodeURIComponent(u.pathname.split('/wiki/')[1] || '');
-      const r = await (await fetch(`https://${u.hostname}/w/api.php?action=query&prop=extracts&explaintext=1&redirects=1&format=json&origin=*&titles=${encodeURIComponent(n)}`)).json();
-      const p = Object.values(r.query.pages)[0]; title = p.title; md = (p.extract || '').replace(/\n/g, '\n\n');
-    }
-    if (isBlocked(title) || isBlocked(md.slice(0, 400))) { setType(t, 'home'); activate(t); return showBlocked(url); }
-    if (t.mode !== 'reader' || t.url !== url) return; // user moved on
-    t.title = title.slice(0, 40); renderStrip(); saveTabs(); box.textContent = '';
-    const h1 = document.createElement('h1'); h1.textContent = title; box.append(h1);
-    renderMd(box, md.slice(0, 60000), url); box.scrollTop = 0;
-  } catch { box.textContent = 'Reader view could not load this page. The site may be unavailable. Try another source.'; }
-}
 async function fetchHtml(target) { // Worker first, allorigins as fallback
   const tries = [];
   if (PROXY_PREFIX) tries.push(PROXY_PREFIX + encodeURIComponent(target));
